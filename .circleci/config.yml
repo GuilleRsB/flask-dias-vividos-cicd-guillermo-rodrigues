@@ -51,24 +51,24 @@ jobs:
             pip install bandit
             bandit -r .
 
-vulnerability_scan:
-  executor: python-executor
-  steps:
-    - checkout
-    - run:
-        name: Instalar Node.js y npm
-        command: |
-          apt-get update && apt-get install -y nodejs npm
-    - run:
-        name: Instalar Snyk CLI via npm
-        command: |
-          npm install -g snyk
-    - run:
-        name: Ejecutar Snyk para análisis de vulnerabilidades
-        command: |
-          snyk test
-        environment:
-          SNYK_TOKEN: $SNYK_TOKEN
+  vulnerability_scan:
+    executor: python-executor
+    steps:
+      - checkout
+      - run:
+          name: Instalar Node.js y npm
+          command: |
+            apt-get update && apt-get install -y nodejs npm
+      - run:
+          name: Instalar Snyk CLI via npm
+          command: |
+            npm install -g snyk
+      - run:
+          name: Ejecutar Snyk para análisis de vulnerabilidades
+          command: |
+            snyk test
+          environment:
+            SNYK_TOKEN: $SNYK_TOKEN
 
   sonar_scan:
     executor: python-executor
