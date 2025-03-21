@@ -1,18 +1,18 @@
-# Imagen base oficial de Python
+# Utiliza una imagen base ligera de Python 3.9
 FROM python:3.9-slim
 
-# Establecer directorio de trabajo
+# Establece el directorio de trabajo
 WORKDIR /app
 
-# Copiar y instalar dependencias
+# Copia el archivo de dependencias e instala
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN python -m pip install --upgrade pip && pip install -r requirements.txt
 
-# Copiar el código de la aplicación
+# Copia el resto de los archivos del proyecto
 COPY . .
 
-# Exponer el puerto en el que se ejecutará la aplicación
+# Expone el puerto 5000 para la aplicación
 EXPOSE 5000
 
-# Comando para iniciar la aplicación usando gunicorn en producción
+# Ejecuta la aplicación usando gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]

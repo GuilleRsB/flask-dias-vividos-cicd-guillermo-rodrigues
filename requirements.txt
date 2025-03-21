@@ -3,5 +3,4 @@ pytest
 pytest-cov
 flake8
 bandit
-snyk
 gunicorn
