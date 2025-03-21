@@ -1,0 +1,149 @@
+version: 2.1
+
+executors:
+  python-executor:
+    docker:
+      - image: cimg/python:3.9  # Imagen oficial de CircleCI con Python 3.9
+    working_directory: ~/repo
+
+jobs:
+  build:
+    executor: python-executor
+    steps:
+      - checkout
+      - run:
+          name: Instalar dependencias
+          command: |
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+
+  test:
+    executor: python-executor
+    steps:
+      - checkout
+      - run:
+          name: Instalar dependencias de test y ejecutar tests
+          command: |
+            pip install -r requirements.txt
+            pip install pytest pytest-cov
+            pytest --maxfail=1 --disable-warnings -q --cov=. --cov-report=xml
+      - store_artifacts:
+          path: coverage.xml
+          destination: reports
+
+  lint:
+    executor: python-executor
+    steps:
+      - checkout
+      - run:
+          name: Instalar y ejecutar flake8
+          command: |
+            pip install flake8
+            flake8 .
+
+  static_analysis:
+    executor: python-executor
+    steps:
+      - checkout
+      - run:
+          name: Instalar y ejecutar Bandit
+          command: |
+            pip install bandit
+            bandit -r .
+
+  vulnerability_scan:
+    executor: python-executor
+    steps:
+      - checkout
+      - run:
+          name: Ejecutar Snyk para análisis de vulnerabilidades
+          command: |
+            pip install snyk
+            snyk test
+          environment:
+            SNYK_TOKEN: << pipeline.parameters.snyk_token >>
+
+  sonar_scan:
+    executor: python-executor
+    steps:
+      - checkout
+      - run:
+          name: Instalar SonarScanner y ejecutar análisis
+          command: |
+            wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.8.0.2856-linux.zip
+            unzip sonar-scanner-cli-4.8.0.2856-linux.zip
+            export PATH=$PATH:$(pwd)/sonar-scanner-4.8.0.2856-linux/bin
+            sonar-scanner \
+              -Dsonar.projectKey=flask-dias-vividos-cicd-guillermo-rodrigues \
+              -Dsonar.sources=. \
+              -Dsonar.python.coverage.reportPaths=coverage.xml \
+              -Dsonar.host.url=$SONAR_HOST_URL \
+              -Dsonar.login=$SONAR_TOKEN
+          environment:
+            SONAR_TOKEN: << pipeline.parameters.sonar_token >>
+            SONAR_HOST_URL: << pipeline.parameters.sonar_host_url >>
+
+  artifact:
+    executor: python-executor
+    filters:
+      branches:
+        only: main
+    steps:
+      - checkout
+      - run:
+          name: Construir imagen Docker
+          command: |
+            docker build -t flask-dias-vividos:latest .
+      - store_artifacts:
+          path: .
+          destination: docker-image  # Opcional o para subir a un registro
+
+  deploy:
+    executor: python-executor
+    filters:
+      branches:
+        only: main
+    steps:
+      - checkout
+      - run:
+          name: Desplegar en Kubernetes con ArgoCD
+          command: |
+            # Autenticarse en ArgoCD
+            argocd login $ARGOCD_SERVER --username $ARGOCD_USERNAME --password $ARGOCD_PASSWORD --insecure
+            # Sincronizar la aplicación configurada en el repositorio GitOps
+            argocd app sync flask-dias-vividos
+          environment:
+            ARGOCD_SERVER: << pipeline.parameters.argocd_server >>
+            ARGOCD_USERNAME: << pipeline.parameters.argocd_username >>
+            ARGOCD_PASSWORD: << pipeline.parameters.argocd_password >>
+
+workflows:
+  version: 2
+  ci_pipeline:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build
+      - lint:
+          requires:
+            - build
+      - static_analysis:
+          requires:
+            - build
+      - vulnerability_scan:
+          requires:
+            - build
+      - sonar_scan:
+          requires:
+            - build
+      - artifact:
+          requires:
+            - test
+            - lint
+            - static_analysis
+            - vulnerability_scan
+            - sonar_scan
+      - deploy:
+          requires:
+            - artifact
