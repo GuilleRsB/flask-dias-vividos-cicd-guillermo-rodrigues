@@ -87,7 +87,9 @@ jobs:
       - run:
           name: Ejecutar análisis con SonarQube
           command: |
-             sonar-scanner \
+            echo "Usando SONAR_HOST_URL=${SONAR_HOST_URL}"
+            echo "Usando SONAR_TOKEN=${SONAR_TOKEN}"
+            sonar-scanner \
               -Dsonar.projectKey=flask_dias_vividos_cicd_guillermo_rodrigues \
               -Dsonar.sources=. \
               -Dsonar.python.coverage.reportPaths=coverage.xml \
