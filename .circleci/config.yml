@@ -22,24 +22,27 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Instalar dependencias de test y ejecutar tests
+          name: Instalar dependencias y herramientas de test
           command: |
             pip install -r requirements.txt
             pip install pytest pytest-cov
-            pytest --maxfail=1 --disable-warnings -q --cov=. --cov-report=xml
+      - run:
+          name: Ejecutar tests con cobertura
+          command: pytest --cov=. --cov-report xml
       - store_artifacts:
           path: coverage.xml
-          destination: reports
+          destination: coverage
 
   lint:
     executor: python-executor
     steps:
       - checkout
       - run:
-          name: Instalar y ejecutar flake8
-          command: |
-            pip install flake8
-            flake8 .
+          name: Instalar Flake8
+          command: pip install flake8
+      - run:
+          name: Ejecutar lint
+          command: flake8 .
 
   static_analysis:
     executor: python-executor
