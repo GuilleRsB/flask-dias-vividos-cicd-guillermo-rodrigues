@@ -3,7 +3,7 @@ version: 2.1
 executors:
   python-executor:
     docker:
-      - image: cimg/python:3.9  # Imagen oficial de CircleCI con Python 3.9
+      - image: cimg/python:3.9
     working_directory: ~/repo
 
 jobs:
@@ -61,7 +61,7 @@ jobs:
             pip install snyk
             snyk test
           environment:
-            SNYK_TOKEN: << pipeline.parameters.snyk_token >>
+            SNYK_TOKEN: $SNYK_TOKEN
 
   sonar_scan:
     executor: python-executor
@@ -74,48 +74,40 @@ jobs:
             unzip sonar-scanner-cli-4.8.0.2856-linux.zip
             export PATH=$PATH:$(pwd)/sonar-scanner-4.8.0.2856-linux/bin
             sonar-scanner \
-              -Dsonar.projectKey=flask-dias-vividos-cicd-guillermo-rodrigues \
+              -Dsonar.projectKey=flask_dias_vividos_cicd_guillermo_rodrigues \
               -Dsonar.sources=. \
               -Dsonar.python.coverage.reportPaths=coverage.xml \
               -Dsonar.host.url=$SONAR_HOST_URL \
               -Dsonar.login=$SONAR_TOKEN
           environment:
-            SONAR_TOKEN: << pipeline.parameters.sonar_token >>
-            SONAR_HOST_URL: << pipeline.parameters.sonar_host_url >>
+            SONAR_TOKEN: $SONAR_TOKEN
+            SONAR_HOST_URL: $SONAR_HOST_URL
 
-  artifact:
+  build_artifact:
     executor: python-executor
-    filters:
-      branches:
-        only: main
     steps:
       - checkout
       - run:
           name: Construir imagen Docker
           command: |
-            docker build -t flask-dias-vividos:latest .
+            docker build -t flask-dias-vividos-cicd-guillermo-rodrigues:latest .
       - store_artifacts:
           path: .
-          destination: docker-image  # Opcional o para subir a un registro
+          destination: docker-image
 
   deploy:
     executor: python-executor
-    filters:
-      branches:
-        only: main
     steps:
       - checkout
       - run:
           name: Desplegar en Kubernetes con ArgoCD
           command: |
-            # Autenticarse en ArgoCD
             argocd login $ARGOCD_SERVER --username $ARGOCD_USERNAME --password $ARGOCD_PASSWORD --insecure
-            # Sincronizar la aplicación configurada en el repositorio GitOps
-            argocd app sync flask-dias-vividos
+            argocd app sync flask-dias-vividos-cicd-guillermo-rodrigues
           environment:
-            ARGOCD_SERVER: << pipeline.parameters.argocd_server >>
-            ARGOCD_USERNAME: << pipeline.parameters.argocd_username >>
-            ARGOCD_PASSWORD: << pipeline.parameters.argocd_password >>
+            ARGOCD_SERVER: $ARGOCD_SERVER
+            ARGOCD_USERNAME: $ARGOCD_USERNAME
+            ARGOCD_PASSWORD: $ARGOCD_PASSWORD
 
 workflows:
   version: 2
@@ -137,13 +129,19 @@ workflows:
       - sonar_scan:
           requires:
             - build
-      - artifact:
+      - build_artifact:
           requires:
             - test
             - lint
             - static_analysis
             - vulnerability_scan
             - sonar_scan
+          filters:
+            branches:
+              only: main
       - deploy:
           requires:
-            - artifact
+            - build_artifact
+          filters:
+            branches:
+              only: main
