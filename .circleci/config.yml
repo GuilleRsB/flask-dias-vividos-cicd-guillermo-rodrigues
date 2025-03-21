@@ -5,6 +5,9 @@ executors:
     docker:
       - image: cimg/python:3.9
     working_directory: ~/repo
+  sonar-executor:
+    docker:
+      - image: sonarsource/sonar-scanner-cli:latest
 
 jobs:
   build:
@@ -81,7 +84,7 @@ jobs:
           command: snyk fix || echo "No se pudieron aplicar correcciones automáticamente"
 
   sonar_scan:
-    executor: python-executor
+    executor: sonar-executor
     steps:
       - checkout
       - run:
