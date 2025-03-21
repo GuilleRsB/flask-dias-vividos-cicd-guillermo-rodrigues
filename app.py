@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template_string
-from app import dias_vividos  # Importa la función desde el módulo separado
+from calculadora import dias_vividos  # Importa la función desde el módulo separado
 
 app = Flask(__name__)
 

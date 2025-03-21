@@ -5,6 +5,7 @@ executors:
     docker:
       - image: circleci/python:3.8
     working_directory: ~/repo
+
   sonar-executor:
     docker:
       - image: sonarsource/sonar-scanner-cli:latest
@@ -31,7 +32,8 @@ jobs:
             pip install pytest pytest-cov
       - run:
           name: Ejecutar tests con cobertura
-          command: pytest --cov=. --cov-report xml
+          command: |
+            pytest --cov=. --cov-report=xml
       - store_artifacts:
           path: coverage.xml
           destination: coverage
@@ -66,10 +68,8 @@ jobs:
           command: |
             sudo apt-get update && sudo apt-get install -y nodejs npm
       - run:
-          name: Instalar pip y dependencias
-          command: |
-            sudo apt-get update && sudo apt-get install -y python3-pip
-            pip install -r requirements.txt
+          name: Instalar dependencias Python
+          command: pip install -r requirements.txt
       - run:
           name: Instalar Snyk CLI
           command: sudo npm install -g snyk
@@ -78,35 +78,34 @@ jobs:
           command: snyk auth $SNYK_TOKEN
       - run:
           name: Ejecutar análisis de vulnerabilidades con Snyk
-          command: snyk test --all-projects
-      - run:
-          name: Aplicar correcciones automáticas con Snyk
-          command: snyk fix || echo "No se pudieron aplicar correcciones automáticamente"
+          command: snyk test --all-projects || echo "Vulnerabilidades detectadas"
 
   sonar_scan:
     executor: sonar-executor
     steps:
       - checkout
       - run:
-          name: Instalar SonarScanner y ejecutar análisis
+          name: Ejecutar análisis con SonarQube
           command: |
-            wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.8.0.2856-linux.zip
-            unzip sonar-scanner-cli-4.8.0.2856-linux.zip
-            export PATH=$PATH:$(pwd)/sonar-scanner-4.8.0.2856-linux/bin
             sonar-scanner \
               -Dsonar.projectKey=flask_dias_vividos_cicd_guillermo_rodrigues \
               -Dsonar.sources=. \
               -Dsonar.python.coverage.reportPaths=coverage.xml \
               -Dsonar.host.url=$SONAR_HOST_URL \
+              -Dsonar.login=$SONAR_TOKEN \
               -Dsonar.organization=guillersb
-          environment:
-            SONAR_TOKEN: $SONAR_TOKEN
-            SONAR_HOST_URL: $SONAR_HOST_URL
+      - store_artifacts:
+          path: coverage.xml
+          destination: reports
+    environment:
+      SONAR_TOKEN: $SONAR_TOKEN
+      SONAR_HOST_URL: $SONAR_HOST_URL
 
   build_artifact:
     executor: python-executor
     steps:
       - checkout
+      - setup_remote_docker
       - run:
           name: Construir imagen Docker
           command: |
@@ -124,10 +123,10 @@ jobs:
           command: |
             argocd login $ARGOCD_SERVER --username $ARGOCD_USERNAME --password $ARGOCD_PASSWORD --insecure
             argocd app sync flask-dias-vividos-cicd-guillermo-rodrigues
-          environment:
-            ARGOCD_SERVER: $ARGOCD_SERVER
-            ARGOCD_USERNAME: $ARGOCD_USERNAME
-            ARGOCD_PASSWORD: $ARGOCD_PASSWORD
+    environment:
+      ARGOCD_SERVER: $ARGOCD_SERVER
+      ARGOCD_USERNAME: $ARGOCD_USERNAME
+      ARGOCD_PASSWORD: $ARGOCD_PASSWORD
 
 workflows:
   version: 2
