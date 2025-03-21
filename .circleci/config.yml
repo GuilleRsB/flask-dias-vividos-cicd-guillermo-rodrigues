@@ -58,17 +58,24 @@ jobs:
       - run:
           name: Instalar Node.js y npm
           command: |
-            apt-get update && apt-get install -y nodejs npm
+            sudo apt-get update && sudo apt-get install -y nodejs npm
       - run:
-          name: Instalar Snyk CLI via npm
+          name: Instalar pip y dependencias
           command: |
-            npm install -g snyk
+            sudo apt-get update && sudo apt-get install -y python3-pip
+            pip install -r requirements.txt
       - run:
-          name: Ejecutar Snyk para análisis de vulnerabilidades
-          command: |
-            snyk test
-          environment:
-            SNYK_TOKEN: $SNYK_TOKEN
+          name: Instalar Snyk CLI
+          command: sudo npm install -g snyk
+      - run:
+          name: Autenticar con Snyk
+          command: snyk auth $SNYK_TOKEN
+      - run:
+          name: Ejecutar análisis de vulnerabilidades con Snyk
+          command: snyk test --all-projects
+      - run:
+          name: Aplicar correcciones automáticas con Snyk
+          command: snyk fix || echo "No se pudieron aplicar correcciones automáticamente"
 
   sonar_scan:
     executor: python-executor
@@ -85,7 +92,7 @@ jobs:
               -Dsonar.sources=. \
               -Dsonar.python.coverage.reportPaths=coverage.xml \
               -Dsonar.host.url=$SONAR_HOST_URL \
-              -Dsonar.login=$SONAR_TOKEN
+              -Dsonar.organization=guillersb
           environment:
             SONAR_TOKEN: $SONAR_TOKEN
             SONAR_HOST_URL: $SONAR_HOST_URL
